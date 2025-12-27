@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import '../../config/theme.dart';
-import '../../providers/baby_provider.dart';
-import '../../services/vaccination_service.dart';
-import '../../models/vaccination_model.dart';
-import '../../widgets/loading_widget.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
 
 class VaccinationScreen extends StatefulWidget {
   const VaccinationScreen({Key? key}) : super(key: key);
@@ -15,8 +11,21 @@ class VaccinationScreen extends StatefulWidget {
 }
 
 class _VaccinationScreenState extends State<VaccinationScreen> {
-  List<Vaccination> _vaccinations = [];
-  bool _isLoading = true;
+  List<Map<String, dynamic>> vaccinations = [
+    {'name': 'BCG (Tuberculose)', 'age': 'À la naissance', 'done': false},
+    {'name': 'Hépatite B (1ère dose)', 'age': 'À la naissance', 'done': false},
+    {'name': 'DTC-Polio (1ère dose)', 'age': '2 mois', 'done': false},
+    {'name': 'Hépatite B (2ème dose)', 'age': '2 mois', 'done': false},
+    {'name': 'Haemophilus (1ère dose)', 'age': '2 mois', 'done': false},
+    {'name': 'DTC-Polio (2ème dose)', 'age': '4 mois', 'done': false},
+    {'name': 'Haemophilus (2ème dose)', 'age': '4 mois', 'done': false},
+    {'name': 'DTC-Polio (3ème dose)', 'age': '6 mois', 'done': false},
+    {'name': 'Hépatite B (3ème dose)', 'age': '6 mois', 'done': false},
+    {'name': 'ROR (Rougeole-Oreillons-Rubéole)', 'age': '9 mois', 'done': false},
+    {'name': 'DTC-Polio (Rappel)', 'age': '18 mois', 'done': false},
+    {'name': 'ROR (Rappel)', 'age': '18 mois', 'done': false},
+    {'name': 'Méningocoque', 'age': '2-4 ans', 'done': false},
+  ];
 
   @override
   void initState() {
@@ -24,287 +33,166 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
     _loadVaccinations();
   }
 
+  // Obtenir le chemin du fichier
+  Future<String> get _localPath async {
+    final directory = await getApplicationDocumentsDirectory();
+    return directory.path;
+  }
+
+  Future<File> get _localFile async {
+    final path = await _localPath;
+    return File('$path/vaccinations.json');
+  }
+
+  // Charger les vaccinations
   Future<void> _loadVaccinations() async {
-    final babyProvider = Provider.of<BabyProvider>(context, listen: false);
-    if (babyProvider.selectedBaby != null) {
-      try {
-        final vaccinations = await VaccinationService.getBabyVaccinations(
-          babyProvider.selectedBaby!.id,
-        );
+    try {
+      final file = await _localFile;
+      if (await file.exists()) {
+        final contents = await file.readAsString();
         setState(() {
-          _vaccinations = vaccinations;
-          _isLoading = false;
-        });
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
+          vaccinations = List<Map<String, dynamic>>.from(
+              json.decode(contents)
+          );
         });
       }
+    } catch (e) {
+      // Si erreur, on garde les données par défaut
+      print('Erreur de chargement: $e');
     }
   }
 
-  Future<void> _markAsCompleted(Vaccination vaccination) async {
-    final DateTime? selectedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-
-    if (selectedDate != null && vaccination.babyVaccinationId != null) {
-      try {
-        await VaccinationService.updateVaccination(
-          vaccination.babyVaccinationId!,
-          {
-            'status': 'completed',
-            'administered_at': selectedDate.toIso8601String().split('T')[0],
-          },
-        );
-        _loadVaccinations();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Vaccination enregistrée'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur: $e'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
-        }
-      }
+  // Sauvegarder les vaccinations
+  Future<void> _saveVaccinations() async {
+    try {
+      final file = await _localFile;
+      await file.writeAsString(json.encode(vaccinations));
+    } catch (e) {
+      print('Erreur de sauvegarde: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final babyProvider = Provider.of<BabyProvider>(context);
-    final baby = babyProvider.selectedBaby;
+    int completed = vaccinations.where((v) => v['done'] == true).length;
+    int total = vaccinations.length;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFCE4EC),
       appBar: AppBar(
-        title: const Text('Vaccinations'),
+        backgroundColor: Colors.pink,
+        title: const Text('💉 Vaccinations'),
+        centerTitle: true,
       ),
-      body: _isLoading
-          ? const LoadingWidget()
-          : baby == null
-          ? const Center(child: Text('Aucun bébé sélectionné'))
-          : _vaccinations.isEmpty
-          ? _buildEmptyState()
-          : _buildVaccinationList(baby.ageInMonths),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.vaccines,
-              size: 100,
-              color: Colors.grey.shade300,
+      body: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.pink,
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Aucune vaccination',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVaccinationList(int babyAge) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _vaccinations.length,
-      itemBuilder: (context, index) {
-        final vaccination = _vaccinations[index];
-        final isCompleted = vaccination.status == 'completed';
-        final isPending = vaccination.status == 'pending';
-        final isRecommended = vaccination.recommendedAgeMonths <= babyAge;
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: isCompleted
-                  ? AppTheme.successColor
-                  : isPending
-                  ? AppTheme.warningColor
-                  : Colors.grey.shade300,
-              child: Icon(
-                isCompleted ? Icons.check : Icons.vaccines,
-                color: Colors.white,
-              ),
-            ),
-            title: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: Text(
-                    vaccination.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      decoration: isCompleted
-                          ? TextDecoration.lineThrough
-                          : null,
-                    ),
-                  ),
-                ),
-                if (vaccination.isMandatory)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.errorColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Obligatoire',
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Progression',
                       style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.errorColor,
+                        color: Colors.white,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-              ],
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  'Recommandé à ${vaccination.recommendedAgeMonths} mois',
-                ),
-                if (isCompleted && vaccination.administeredAt != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Administré le ${DateFormat('dd/MM/yyyy').format(vaccination.administeredAt!)}',
-                    style: TextStyle(
-                      color: AppTheme.successColor,
-                      fontWeight: FontWeight.w600,
+                    Text(
+                      '$completed / $total',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
-                if (isPending && vaccination.scheduledAt != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Prévu le ${DateFormat('dd/MM/yyyy').format(vaccination.scheduledAt!)}',
-                    style: TextStyle(
-                      color: AppTheme.warningColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            trailing: !isCompleted && isRecommended
-                ? IconButton(
-              icon: const Icon(Icons.check_circle_outline),
-              color: AppTheme.successColor,
-              onPressed: () => _markAsCompleted(vaccination),
-            )
-                : null,
-            onTap: () => _showVaccinationDetails(vaccination),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showVaccinationDetails(Vaccination vaccination) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                vaccination.name,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                vaccination.description,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppTheme.textSecondaryColor,
-                ),
-              ),
-              if (vaccination.location != null) ...[
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Icon(Icons.location_on, color: AppTheme.primaryColor),
-                    const SizedBox(width: 8),
-                    Text('Lieu: ${vaccination.location}'),
                   ],
                 ),
-              ],
-              if (vaccination.notes != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.note, color: Colors.blue),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(vaccination.notes!),
-                      ),
-                    ],
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: total > 0 ? completed / total : 0,
+                    minHeight: 10,
+                    backgroundColor: Colors.white30,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: vaccinations.length,
+              itemBuilder: (context, index) {
+                final vaccine = vaccinations[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    leading: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: vaccine['done'] ? Colors.green : const Color(0xFFF8BBD0),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        vaccine['done'] ? Icons.check : Icons.vaccines,
+                        color: vaccine['done'] ? Colors.white : Colors.pink,
+                        size: 25,
+                      ),
+                    ),
+                    title: Text(
+                      vaccine['name'],
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        decoration: vaccine['done'] ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Âge: ${vaccine['age']}',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                      ),
+                    ),
+                    trailing: Checkbox(
+                      value: vaccine['done'],
+                      activeColor: Colors.green,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      onChanged: (bool? value) {
+                        setState(() {
+                          vaccine['done'] = value ?? false;
+                        });
+                        _saveVaccinations();
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
