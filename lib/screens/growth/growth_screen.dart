@@ -1,9 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/baby_provider.dart';
-import '../../services/growth_service.dart';
-import '../../models/growth_model.dart';
-import '../../config/routes.dart';
 import 'package:intl/intl.dart';
 
 class GrowthScreen extends StatefulWidget {
@@ -14,68 +9,344 @@ class GrowthScreen extends StatefulWidget {
 }
 
 class _GrowthScreenState extends State<GrowthScreen> {
-  List<Growth> _growths = [];
-  bool _isLoading = true;
+  final List<Map<String, dynamic>> measurements = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadGrowths();
+  void _addMeasurement() {
+    final weightController = TextEditingController();
+    final heightController = TextEditingController();
+    final headController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            color: Color(0xFFFFF8F0),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD4E5).withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Text('📏', style: TextStyle(fontSize: 32)),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Nouvelle Mesure',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '📅 Date',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.light(
+                                    primary: const Color(0xFFFFB6C1),
+                                    onPrimary: Colors.white,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (date != null) setModalState(() => selectedDate = date);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFFFE4B5), width: 2),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFE4B5),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.calendar_today,
+                                  color: Color(0xFFFF8C94),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                DateFormat('dd/MM/yyyy').format(selectedDate),
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        '📊 Mesures',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildMeasurementField(
+                        icon: '⚖️',
+                        label: 'Poids (kg)',
+                        hint: 'Ex: 5.5',
+                        controller: weightController,
+                        color: const Color(0xFFFFE4B5),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildMeasurementField(
+                        icon: '📐',
+                        label: 'Taille (cm)',
+                        hint: 'Ex: 60',
+                        controller: heightController,
+                        color: const Color(0xFFD4E9FF),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildMeasurementField(
+                        icon: '🎀',
+                        label: 'Périmètre crânien (cm)',
+                        hint: 'Ex: 40 (optionnel)',
+                        controller: headController,
+                        color: const Color(0xFFFFD4E5),
+                      ),
+                      const SizedBox(height: 32),
+                      Container(
+                        width: double.infinity,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFB6C1), Color(0xFFFF8C94)],
+                          ),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFFB6C1).withOpacity(0.4),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              if (weightController.text.isNotEmpty &&
+                                  heightController.text.isNotEmpty) {
+                                setState(() {
+                                  measurements.add({
+                                    'date': selectedDate,
+                                    'weight': double.tryParse(weightController.text) ?? 0,
+                                    'height': double.tryParse(heightController.text) ?? 0,
+                                    'head': headController.text.isNotEmpty
+                                        ? double.tryParse(headController.text)
+                                        : null,
+                                  });
+                                  measurements.sort((a, b) =>
+                                      (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+                                });
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Mesure ajoutée ! 🎉'),
+                                    backgroundColor: const Color(0xFF81C784),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Poids et taille requis !'),
+                                    backgroundColor: const Color(0xFFEF5350),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(30),
+                            child: const Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Enregistrer',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('✨', style: TextStyle(fontSize: 20)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  Future<void> _loadGrowths() async {
-    setState(() => _isLoading = true);
-
-    final babyProvider = Provider.of<BabyProvider>(context, listen: false);
-    if (babyProvider.selectedBaby != null) {
-      try {
-        final growths = await GrowthService.getGrowths(
-          babyProvider.selectedBaby!.id,
-        );
-        if (mounted) {
-          setState(() {
-            _growths = growths;
-            _isLoading = false;
-          });
-        }
-      } catch (e) {
-        print('Erreur: $e');
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
-    } else {
-      setState(() => _isLoading = false);
-    }
+  Widget _buildMeasurementField({
+    required String icon,
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Center(
+              child: Text(icon, style: const TextStyle(fontSize: 24)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontWeight: FontWeight.w500,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blue[50],
+      backgroundColor: const Color(0xFFFFF8F0),
       appBar: AppBar(
-        backgroundColor: Colors.blue,
-        title: const Text('📊 Croissance'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('📊', style: TextStyle(fontSize: 28)),
+            const SizedBox(width: 8),
+            Text(
+              'Croissance',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade800,
+              ),
+            ),
+          ],
+        ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadGrowths,
-          ),
-        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _growths.isEmpty
-          ? _buildEmpty()
-          : _buildList(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.pushNamed(context, AppRoutes.addGrowth);
-          _loadGrowths(); // Recharge après ajout
-        },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add),
+      body: measurements.isEmpty ? _buildEmpty() : _buildList(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addMeasurement,
+        backgroundColor: const Color(0xFFFFB6C1),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Ajouter',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        elevation: 8,
       ),
     );
   }
@@ -86,35 +357,57 @@ class _GrowthScreenState extends State<GrowthScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 100,
-            height: 100,
+            width: 120,
+            height: 120,
             decoration: BoxDecoration(
-              color: Colors.blue,
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFFFB6C1).withOpacity(0.3),
+                  const Color(0xFFFF8C94).withOpacity(0.1),
+                ],
+              ),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.show_chart, color: Colors.white, size: 50),
+            child: const Center(
+              child: Text('📊', style: TextStyle(fontSize: 60)),
+            ),
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Aucune mesure',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
           Text(
-            'Ajoutez la première mesure',
-            style: TextStyle(color: Colors.grey[600]),
+            'Aucune mesure',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey.shade800,
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
+          Text(
+            'Commence à suivre la croissance !',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 32),
           ElevatedButton.icon(
-            onPressed: () async {
-              await Navigator.pushNamed(context, AppRoutes.addGrowth);
-              _loadGrowths();
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Ajouter'),
+            onPressed: _addMeasurement,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'Ajouter une mesure',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              backgroundColor: const Color(0xFFFFB6C1),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+              elevation: 8,
             ),
           ),
         ],
@@ -125,112 +418,107 @@ class _GrowthScreenState extends State<GrowthScreen> {
   Widget _buildList() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _growths.length,
+      itemCount: measurements.length,
       itemBuilder: (context, index) {
-        final growth = _growths[index];
-        return Card(
+        final m = measurements[index];
+        return Container(
           margin: const EdgeInsets.only(bottom: 16),
-          elevation: 3,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                colors: [Colors.blue[100]!, Colors.white],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFFFE4B5), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFFB6C1).withOpacity(0.1),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Text(
-                            DateFormat('dd/MM/yyyy').format(growth.measuredAt),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFE4B5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_today,
+                            color: Color(0xFFFF8C94),
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          DateFormat('dd/MM/yyyy').format(m['date']),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Color(0xFFEF5350)),
+                      onPressed: () {
+                        setState(() {
+                          measurements.removeAt(index);
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Mesure supprimée'),
+                            backgroundColor: const Color(0xFFEF5350),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
                             ),
                           ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${growth.ageInMonths} mois',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildMeasure(
-                          '⚖️',
-                          'Poids',
-                          '${growth.weight} kg',
-                          Colors.orange,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildMeasure(
-                          '📏',
-                          'Taille',
-                          '${growth.height} cm',
-                          Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (growth.headCircumference != null) ...[
-                    const SizedBox(height: 12),
-                    _buildMeasure(
-                      '👶',
-                      'Périmètre crânien',
-                      '${growth.headCircumference} cm',
-                      Colors.purple,
+                        );
+                      },
                     ),
                   ],
-                  if (growth.notes != null && growth.notes!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMeasureCard(
+                        '⚖️',
+                        'Poids',
+                        '${m['weight']} kg',
+                        const Color(0xFFFFE4B5),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.note, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              growth.notes!,
-                              style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                            ),
-                          ),
-                        ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildMeasureCard(
+                        '📏',
+                        'Taille',
+                        '${m['height']} cm',
+                        const Color(0xFFD4E9FF),
                       ),
                     ),
                   ],
+                ),
+                if (m['head'] != null) ...[
+                  const SizedBox(height: 12),
+                  _buildMeasureCard(
+                    '🎀',
+                    'Périmètre crânien',
+                    '${m['head']} cm',
+                    const Color(0xFFFFD4E5),
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
         );
@@ -238,29 +526,32 @@ class _GrowthScreenState extends State<GrowthScreen> {
     );
   }
 
-  Widget _buildMeasure(String emoji, String label, String value, Color color) {
+  Widget _buildMeasureCard(String emoji, String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 24)),
+          Text(emoji, style: const TextStyle(fontSize: 28)),
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey.shade800,
             ),
           ),
         ],
